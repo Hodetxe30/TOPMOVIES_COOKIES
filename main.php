@@ -6,6 +6,15 @@ if (isset($_POST["erabiltzailea"])) {
 } else {
     $erabiltzailea = $_COOKIE["erabiltzailea"] ?? "";
 }
+
+// Erabiltzailearen sarrera kopurua berreskuratu.
+$sarrerak = (int)($_COOKIE["sarrerak"] ?? 0);
+
+// Orria lehen aldiz irekitzean edo erabiltzailearen izena bidaltzean zenbatu.
+if (!isset($_POST["filmak"])) {
+    $sarrerak++;
+    setcookie("sarrerak", $sarrerak, time() + 3600, "/");
+}
 ?>
 
 <?php
@@ -31,7 +40,12 @@ if (isset($_POST["filmak"]) && is_array($_POST["filmak"])) {
     foreach ($_POST["filmak"] as $f) {
         if (isset($f["izena"], $f["ISAN"], $f["urtea"], $f["puntuazioa"])) {
             $filmak->gehitu(
-                new Filma($f["izena"], $f["ISAN"], $f["urtea"], $f["puntuazioa"])
+                new Filma(
+                    $f["izena"],
+                    $f["ISAN"],
+                    $f["urtea"],
+                    $f["puntuazioa"]
+                )
             );
         }
     }
@@ -54,13 +68,16 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if ($izena == "" && $ISAN == "") {
         $mezua = "Abisua: sartu izena edo ISAN zenbakia.";
     }
-    // Izenaren bidez bilatu.
+
+    // Izenaren bidez filma bilatu.
     elseif ($ISAN == "" && $izena != "") {
         $emaitzak = $filmak->bilatuIzenez($izena);
+
         if (count($emaitzak) == 0) {
             $mezua = "Ez da filmik aurkitu.";
         }
     }
+
     // ISANaren bidez filma ezabatu.
     elseif ($izena == "" && $ISAN != "") {
         if ($filmak->ezabatu($ISAN)) {
@@ -69,6 +86,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $mezua = "Ez dago filmik aukeratutako ISANarekin.";
         }
     }
+
     // Dagoen filma eguneratu.
     elseif ($filmak->bilatuISAN($ISAN) != null) {
         if (
@@ -84,6 +102,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $mezua = "Abisua: bete eremu guztiak.";
         }
     }
+
     // Film berria gehitu.
     else {
         if (
@@ -95,10 +114,13 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             (int)$puntuazioa >= 0 &&
             (int)$puntuazioa <= 5
         ) {
+            // ISANak zortzi zenbaki dituela egiaztatu.
             if (!preg_match('/^[0-9]{8}$/', $ISAN)) {
                 $mezua = "ISANak 8 zenbaki izan behar ditu.";
             } else {
-                $filmak->gehitu(new Filma($izena, $ISAN, $urtea, $puntuazioa));
+                $filmak->gehitu(
+                    new Filma($izena, $ISAN, $urtea, $puntuazioa)
+                );
                 $mezua = "Filma gehitu da.";
             }
         } else {
@@ -117,6 +139,9 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 <body>
 
     <h1><?php echo seguru($erabiltzailea); ?>-REN FILMAK</h1>
+
+    <p>Orri honetan sartu zaren aldiz kopurua: <?php echo $sarrerak; ?></p>
+
     <h2>Film zerrenda</h2>
 
     <table border="1">
@@ -141,6 +166,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
 
     <?php if (count($emaitzak) > 0) { ?>
         <h2>Bilaketaren emaitzak</h2>
+
         <?php foreach ($emaitzak as $filma) { ?>
             <p>
                 <?php echo seguru($filma->getIzena()); ?>
@@ -152,21 +178,25 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     <h2>Filma gehitu, bilatu, eguneratu edo ezabatu</h2>
 
     <form method="POST" action="main.php">
+
         <!-- Erabiltzailearen izena hurrengo eskaeran mantendu. -->
         <input type="hidden" name="erabiltzailea"
             value="<?php echo seguru($erabiltzailea); ?>">
 
-        <!-- Film guztien datuak hurrengo eskaeran mantendu. -->
+        <!-- Film bakoitzaren datuak hurrengo eskaeran mantendu. -->
         <?php foreach ($filmak->getFilmak() as $filma) { ?>
             <input type="hidden"
                 name="filmak[<?php echo seguru($filma->getISAN()); ?>][izena]"
                 value="<?php echo seguru($filma->getIzena()); ?>">
+
             <input type="hidden"
                 name="filmak[<?php echo seguru($filma->getISAN()); ?>][ISAN]"
                 value="<?php echo seguru($filma->getISAN()); ?>">
+
             <input type="hidden"
                 name="filmak[<?php echo seguru($filma->getISAN()); ?>][urtea]"
                 value="<?php echo seguru($filma->getUrtea()); ?>">
+
             <input type="hidden"
                 name="filmak[<?php echo seguru($filma->getISAN()); ?>][puntuazioa]"
                 value="<?php echo seguru($filma->getPuntuazioa()); ?>">
@@ -194,7 +224,11 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
         <select id="puntuazioa" name="puntuazioa">
             <?php for ($i = 0; $i <= 5; $i++) { ?>
                 <option value="<?php echo $i; ?>"
-                    <?php if ((string)$puntuazioa === (string)$i) echo "selected"; ?>>
+                    <?php
+                    if ((string)$puntuazioa === (string)$i) {
+                        echo "selected";
+                    }
+                    ?>>
                     <?php echo $i; ?>
                 </option>
             <?php } ?>
